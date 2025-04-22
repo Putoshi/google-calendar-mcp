@@ -6,15 +6,16 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { OAuth2Client } from "google-auth-library";
 import { fileURLToPath } from "url";
+import http from "http";
 
 // Import modular components
-import { initializeOAuth2Client } from './auth/client.js';
-import { AuthServer } from './auth/server.js';
-import { TokenManager } from './auth/tokenManager.js';
-import { getToolDefinitions } from './handlers/listTools.js';
-import { handleCallTool } from './handlers/callTool.js';
+import { initializeOAuth2Client } from "./auth/client.js";
+import { AuthServer } from "./auth/server.js";
+import { TokenManager } from "./auth/tokenManager.js";
+import { getToolDefinitions } from "./handlers/listTools.js";
+import { handleCallTool } from "./handlers/callTool.js";
 
-// --- Global Variables --- 
+// --- Global Variables ---
 // Create server instance (global for export)
 const server = new Server(
   {
@@ -28,11 +29,14 @@ const server = new Server(
   }
 );
 
+// Set port from environment variable
+const PORT = parseInt(process.env.PORT || "8080", 10);
+
 let oauth2Client: OAuth2Client;
 let tokenManager: TokenManager;
 let authServer: AuthServer;
 
-// --- Main Application Logic --- 
+// --- Main Application Logic ---
 async function main() {
   try {
     // 1. Initialize Authentication
@@ -48,7 +52,7 @@ async function main() {
     }
 
     // 3. Set up MCP Handlers
-    
+
     // List Tools Handler
     server.setRequestHandler(ListToolsRequestSchema, async () => {
       // Directly return the definitions from the handler module
@@ -59,9 +63,11 @@ async function main() {
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Check if tokens are valid before handling the request
       if (!(await tokenManager.validateTokens())) {
-        throw new Error("Authentication required. Please run 'npm run auth' to authenticate.");
+        throw new Error(
+          "Authentication required. Please run 'npm run auth' to authenticate."
+        );
       }
-      
+
       // Delegate the actual tool execution to the specialized handler
       return handleCallTool(request, oauth2Client);
     });
@@ -70,16 +76,24 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    // 5. Set up Graceful Shutdown
+    // 5. Start HTTP server for Cloud Run
+    const httpServer = http.createServer((req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Google Calendar MCP is running\n");
+    });
+    httpServer.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+
+    // 6. Set up Graceful Shutdown
     process.on("SIGINT", cleanup);
     process.on("SIGTERM", cleanup);
-
   } catch (error: unknown) {
     process.exit(1);
   }
 }
 
-// --- Cleanup Logic --- 
+// --- Cleanup Logic ---
 async function cleanup() {
   try {
     if (authServer) {
@@ -92,12 +106,14 @@ async function cleanup() {
   }
 }
 
-// --- Exports & Execution Guard --- 
+// --- Exports & Execution Guard ---
 // Export server and main for testing or potential programmatic use
 export { main, server };
 
 // Run main() only when this script is executed directly
-const isDirectRun = import.meta.url.startsWith('file://') && process.argv[1] === fileURLToPath(import.meta.url);
+const isDirectRun =
+  import.meta.url.startsWith("file://") &&
+  process.argv[1] === fileURLToPath(import.meta.url);
 if (isDirectRun) {
   main().catch(() => {
     process.exit(1);
