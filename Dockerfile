@@ -1,14 +1,27 @@
-FROM node:18
+# Use Node.js 18 as the base image
+FROM node:18-slim
 
+# Set working directory
 WORKDIR /app
 
+# Install dependencies first (better caching)
 COPY package*.json ./
-RUN npm install
 
+# Install dependencies
+RUN apt-get update && \
+  apt-get install -y python3 make g++ && \
+  npm install && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
+
+# Copy the rest of the application
 COPY . .
 
-ENV PORT=8080
+# Build the application
+RUN npm run build
 
+# Expose the port the app runs on
 EXPOSE 8080
 
-CMD ["node", "build/index.js"]
+# Command to run the application
+CMD ["node", "dist/index.js"]
