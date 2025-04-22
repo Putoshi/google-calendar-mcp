@@ -46,11 +46,15 @@ async function main() {
     authServer = new AuthServer(oauth2Client);
 
     // 2. Start auth server if authentication is required
-    // The start method internally validates tokens first
-    const authSuccess = await authServer.start();
-    if (!authSuccess) {
-      console.error("Authentication failed");
-      process.exit(1);
+    // Skip authentication in Cloud Run environment
+    if (process.env.K_SERVICE) {
+      console.log("Running in Cloud Run environment, skipping authentication");
+    } else {
+      const authSuccess = await authServer.start();
+      if (!authSuccess) {
+        console.error("Authentication failed");
+        process.exit(1);
+      }
     }
 
     // 3. Set up MCP Handlers
@@ -63,11 +67,13 @@ async function main() {
 
     // Call Tool Handler
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      // Check if tokens are valid before handling the request
-      if (!(await tokenManager.validateTokens())) {
-        throw new Error(
-          "Authentication required. Please run 'npm run auth' to authenticate."
-        );
+      // Skip token validation in Cloud Run environment
+      if (!process.env.K_SERVICE) {
+        if (!(await tokenManager.validateTokens())) {
+          throw new Error(
+            "Authentication required. Please run 'npm run auth' to authenticate."
+          );
+        }
       }
 
       // Delegate the actual tool execution to the specialized handler
