@@ -35,6 +35,7 @@ const PORT = parseInt(process.env.PORT || "8080", 10);
 let oauth2Client: OAuth2Client;
 let tokenManager: TokenManager;
 let authServer: AuthServer;
+let httpServer: http.Server | null = null;
 
 // --- Main Application Logic ---
 async function main() {
@@ -48,6 +49,7 @@ async function main() {
     // The start method internally validates tokens first
     const authSuccess = await authServer.start();
     if (!authSuccess) {
+      console.error("Authentication failed");
       process.exit(1);
     }
 
@@ -77,18 +79,35 @@ async function main() {
     await server.connect(transport);
 
     // 5. Start HTTP server for Cloud Run
-    const httpServer = http.createServer((req, res) => {
+    httpServer = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end("Google Calendar MCP is running\n");
     });
-    httpServer.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
+
+    // Start server and wait for it to be ready
+    await new Promise<void>((resolve, reject) => {
+      if (!httpServer) {
+        reject(new Error("HTTP server not initialized"));
+        return;
+      }
+
+      httpServer.listen(PORT, () => {
+        console.log(`Server listening on port ${PORT}`);
+        resolve();
+      });
+
+      httpServer.on("error", (err) => {
+        console.error("Server error:", err);
+        reject(err);
+      });
     });
 
     // 6. Set up Graceful Shutdown
     process.on("SIGINT", cleanup);
     process.on("SIGTERM", cleanup);
   } catch (error: unknown) {
+    console.error("Fatal error:", error);
+    await cleanup();
     process.exit(1);
   }
 }
@@ -96,12 +115,22 @@ async function main() {
 // --- Cleanup Logic ---
 async function cleanup() {
   try {
+    console.log("Cleaning up...");
+    if (httpServer) {
+      await new Promise<void>((resolve) => {
+        httpServer?.close(() => {
+          console.log("HTTP server closed");
+          resolve();
+        });
+      });
+    }
     if (authServer) {
-      // Attempt to stop the auth server if it exists and might be running
       await authServer.stop();
+      console.log("Auth server stopped");
     }
     process.exit(0);
   } catch (error: unknown) {
+    console.error("Error during cleanup:", error);
     process.exit(1);
   }
 }
