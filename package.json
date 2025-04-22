@@ -6,6 +6,9 @@
   "bin": {
     "google-calendar-mcp": "./build/index.js"
   },
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node scripts/build.js",
