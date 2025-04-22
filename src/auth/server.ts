@@ -166,6 +166,7 @@ export class AuthServer {
           resolve();
         });
         testServer.on("error", (err: NodeJS.ErrnoException) => {
+          console.error(`Failed to start server on port ${this.port}:`, err);
           reject(err);
         });
       });

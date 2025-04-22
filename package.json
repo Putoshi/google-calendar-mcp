@@ -3,6 +3,7 @@
   "version": "1.1.0",
   "description": "Google Calendar MCP Server",
   "type": "module",
+  "main": "electron/main.js",
   "bin": {
     "google-calendar-mcp": "./build/index.js"
   },
@@ -17,7 +18,10 @@
     "postinstall": "scripts/build.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder",
+    "electron:start": "npm run build && electron ."
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
@@ -33,7 +37,30 @@
   "devDependencies": {
     "@types/node": "^20.10.4",
     "@vitest/coverage-v8": "^3.1.1",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
     "typescript": "^5.3.3",
     "vitest": "^3.1.1"
+  },
+  "build": {
+    "appId": "com.googlecalendarmcp.app",
+    "productName": "Google Calendar MCP",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "electron/**/*"
+    ],
+    "asar": false,
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
