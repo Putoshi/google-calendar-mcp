@@ -11,10 +11,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && node scripts/build.js",
+    "build": "tsc",
     "start": "node build/index.js",
     "auth": "node build/auth-server.js",
-    "postinstall": "scripts/build.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage"
