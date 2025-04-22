@@ -6,7 +6,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { OAuth2Client } from "google-auth-library";
 import { fileURLToPath } from "url";
-import http from "http";
 
 // Import modular components
 import { initializeOAuth2Client } from "./auth/client.js";
@@ -29,21 +28,14 @@ const server = new Server(
   }
 );
 
-// Set port from environment variable
-const PORT = parseInt(process.env.PORT || "8080", 10);
-
 let oauth2Client: OAuth2Client;
 let tokenManager: TokenManager;
 let authServer: AuthServer;
-let httpServer: http.Server | null = null;
 
 // --- Main Application Logic ---
 async function main() {
   try {
-    console.log("Starting application...");
-
     // 1. Initialize Authentication
-    console.log("Initializing OAuth2 client...");
     oauth2Client = await initializeOAuth2Client();
     tokenManager = new TokenManager(oauth2Client);
     authServer = new AuthServer(oauth2Client);
@@ -51,9 +43,7 @@ async function main() {
     // 2. Start auth server if authentication is required
     // Skip authentication in Cloud Run environment
     if (process.env.K_SERVICE) {
-      console.log("Running in Cloud Run environment, skipping authentication");
     } else {
-      console.log("Starting authentication server...");
       const authSuccess = await authServer.start();
       if (!authSuccess) {
         console.error("Authentication failed");
@@ -62,7 +52,6 @@ async function main() {
     }
 
     // 3. Set up MCP Handlers
-    console.log("Setting up MCP handlers...");
     server.setRequestHandler(ListToolsRequestSchema, async () => {
       return getToolDefinitions();
     });
@@ -79,39 +68,10 @@ async function main() {
     });
 
     // 4. Connect Server Transport
-    console.log("Connecting to MCP transport...");
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    // 5. Start HTTP server for Cloud Run
-    console.log("Starting HTTP server...");
-    httpServer = http.createServer((req, res) => {
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      res.end("Google Calendar MCP is running\n");
-    });
-
-    // Start server and wait for it to be ready
-    console.log(`Attempting to listen on port ${PORT}...`);
-    await new Promise<void>((resolve, reject) => {
-      if (!httpServer) {
-        reject(new Error("HTTP server not initialized"));
-        return;
-      }
-
-      httpServer.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server successfully listening on port ${PORT}`);
-        resolve();
-      });
-
-      httpServer.on("error", (err) => {
-        console.error("Server error:", err);
-        reject(err);
-      });
-    });
-
-    console.log("Application startup completed successfully");
-
-    // 6. Set up Graceful Shutdown
+    // 5. Set up Graceful Shutdown
     process.on("SIGINT", cleanup);
     process.on("SIGTERM", cleanup);
   } catch (error: unknown) {
@@ -127,20 +87,9 @@ async function main() {
 // --- Cleanup Logic ---
 async function cleanup() {
   try {
-    console.log("Starting cleanup...");
-    if (httpServer) {
-      await new Promise<void>((resolve) => {
-        httpServer?.close(() => {
-          console.log("HTTP server closed");
-          resolve();
-        });
-      });
-    }
     if (authServer) {
       await authServer.stop();
-      console.log("Auth server stopped");
     }
-    console.log("Cleanup completed");
     process.exit(0);
   } catch (error: unknown) {
     console.error("Error during cleanup:", error);
