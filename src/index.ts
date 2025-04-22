@@ -91,8 +91,8 @@ async function main() {
         return;
       }
 
-      httpServer.listen(PORT, () => {
-        console.log(`Server listening on port  ${PORT}`);
+      httpServer.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server listening on port ${PORT}`);
         resolve();
       });
 
